@@ -1,43 +1,47 @@
+import os
 from prompt_toolkit import prompt
-import csv
+import pandas as pd
 
 if __name__ == '__main__':
     relevant_posts = []
     seen_urls = set()
     try:
         while True:
-            print("-" * 100)
+            print("-" * 50)
+            location = prompt('Enter location: ')
             url = prompt('Enter URL: ')
             if not url:
                 continue
             if url in seen_urls:
                 print('URL already added')
                 continue
-
+            contact = prompt('Enter contact info: ')
             price = prompt('Enter price: ')
-            location = prompt('Enter location: ')
             comment = prompt('Enter comment: ')
             relevant_posts.append({
                 'url': url,
                 'price': price,
                 'location': location,
-                'comment': comment
+                'comment': comment,
+                'contact': contact
             })
             seen_urls.add(url)
 
     except (KeyboardInterrupt, EOFError):
         pass
 
-    if relevant_posts:
-        with open('relevant_posts.csv', 'a', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=['url', 'price', 'location'])
-            if f.tell() == 0:
-                writer.writeheader()  # only write header if file is empty
-            writer.writerows(relevant_posts)
-        print(f'\nSaved {len(relevant_posts)} entries.')
-    else:
+    if not relevant_posts:
         print('\nNothing to save.')
 
+    if os.path.exists('relevant_posts.csv'):
+        df = pd.read_csv('relevant_posts.csv')
+        df = pd.concat([df, pd.DataFrame(relevant_posts)], ignore_index=True)
+        df.drop_duplicates(subset='url', keep='last', inplace=True)
+        df.to_csv('relevant_posts.csv', index=False)
+    else:
+        df = pd.DataFrame(relevant_posts)
+    df.to_csv('relevant_posts.csv', index=False)
+    print('\nSaved relevant_posts.csv')
 
 
 
