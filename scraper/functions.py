@@ -17,8 +17,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
-from scraper.models import PostModel, GroupModel
-
+from models import PostModel, GroupModel
 
 load_dotenv()
 
@@ -31,7 +30,7 @@ with open(os.path.join("../config.yaml"), "r") as f:
 facebook_groups = [GroupModel(idx=i, **g) for i, g in enumerate(config['groups'])]
 
 
-def save_raw_posts(raw_posts: list, path: str = './raw_posts') -> None:
+def save_raw_posts(raw_posts: list, path: str = '../raw_data') -> None:
     if len(raw_posts) == 0:
         print("Nothing to save.")
         return

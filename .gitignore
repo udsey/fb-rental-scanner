@@ -217,6 +217,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-raw_posts/*
+raw_data/*
 .idea
 config.yaml
