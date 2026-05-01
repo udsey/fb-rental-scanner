@@ -17,13 +17,13 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
-from models import PostModel, GroupModel
+from scr.models import PostModel, GroupModel
 
 load_dotenv()
 
 FACEBOOK_USERNAME = os.getenv("FACEBOOK_USERNAME")
 FACEBOOK_PASSWORD = os.getenv("FACEBOOK_PASSWORD")
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.getenv("BASE_DIR")
 
 with open(os.path.join(BASE_DIR, "config.yaml"), "r") as f:
     config = yaml.safe_load(f)
@@ -36,7 +36,7 @@ def save_raw_posts(raw_posts: list) -> None:
         print("Nothing to save.")
         return
     filename = f"raw_posts_{str(datetime.now())}.csv"
-    full_path = os.path.join(BASE_DIR, '/raw_data', filename)
+    full_path = os.path.join(BASE_DIR, 'data/raw_data', filename)
     df = pd.DataFrame([post.model_dump() for post in raw_posts])
     df.to_csv(full_path, index=False)
     print("Done!")
@@ -54,7 +54,7 @@ def cooldown(a=2, b=3):
     time.sleep(random.uniform(a, b))
 
 
-def configure_chrome(wait_timeout=100):
+def configure_chrome(wait_timeout=1000):
     """Configure chromedriver"""
     options = Options()
     options.add_experimental_option("excludeSwitches", ["enable-automation"])

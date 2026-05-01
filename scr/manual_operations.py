@@ -1,9 +1,14 @@
 import pandas as pd
 import yaml
 import os
-from models import ApartmentModel
+from dotenv import load_dotenv
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from scr.models import ApartmentModel
+
+load_dotenv()
+
+
+BASE_DIR = os.getenv("BASE_DIR")
 
 with open(os.path.join(BASE_DIR, "config.yaml"), "r") as f:
     config = yaml.safe_load(f)
@@ -11,19 +16,24 @@ with open(os.path.join(BASE_DIR, "config.yaml"), "r") as f:
 
 def generate_messages():
     message_text = config['message_text']
-    filename = os.path.join(BASE_DIR, 'relevant_apartments.csv')
-    df = pd.read_csv(filename)
+    filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
+    if not os.path.exists(filename):
+        print("\nNo relevant apartments found.")
+        return
+    df = pd.read_csv(filename, dtype=str)
     messages = [f"{message_text}\n{url}" for url in df["url"]]
-    contacts = df['contact'].tolist()
-
-    with open("messages.txt", "w") as f:
+    contacts = df['contact_number'].tolist()
+    filename = os.path.join(BASE_DIR, 'data/messages.txt')
+    with open(filename, "a") as f:
         spacer = "_" * 50 + '\n\n'
         for contact, message in zip(contacts, messages):
             f.write(f"{contact}\n\n{message}\n\n")
             f.write(spacer)
+    print("\nDone!")
+
 
 def manually_add_relevant_apartments():
-    filename = os.path.join(BASE_DIR, 'relevant_apartments.csv')
+    filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
     relevant_posts = []
     seen_urls = set()
 
@@ -41,6 +51,8 @@ def manually_add_relevant_apartments():
             apartment.contact_number = input('Enter contact info: ')
             while True:
                 price_input = input('Enter price: ').strip()
+                if price_input == '':
+                    price_input = 0
                 try:
                     price = float(price_input)
                     break
@@ -84,12 +96,13 @@ def ask_yes_no(question: str) -> bool:
         if answer in ('n', 'no'): return False
         print("Please enter y or n.")
 
+
 def review_apartments():
-    filename = os.path.join(BASE_DIR, 'relevant_apartments.csv')
+    filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
     if not os.path.exists(filename):
         print("\nNothing to review.")
         return
-    df = pd.read_csv(filename)
+    df = pd.read_csv(filename, dtype=str)
     to_remove = []
 
     for i, row in df.iterrows():

@@ -8,10 +8,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 import os
 import pandas as pd
-from models import LLMResponseModel
+from scr.models import LLMResponseModel
 load_dotenv()
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.getenv("BASE_DIR")
 
 system_prompt = """You are a real estate information extractor. Extract apartment/rental information from Vietnamese real estate posts.
 
@@ -129,11 +129,11 @@ def load_criteria():
 def select_relevant_apartments():
     criteria = load_criteria()
     apartments_list = []
-    filename = os.path.join(BASE_DIR, 'relevant_apartments.csv')
+    filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
     if os.path.isfile(filename):
         apartments_list.append(pd.read_csv(filename))
 
-    dirname = os.path.join(BASE_DIR, 'raw_data')
+    dirname = os.path.join(BASE_DIR, 'data/raw_data')
     for filename in os.listdir(dirname):
         filepath = os.path.join(dirname, filename)
         df = pd.read_csv(filepath)
@@ -151,9 +151,9 @@ def select_relevant_apartments():
         apartments.sort_values(by=['price', 'published_at'], inplace=True)
         apartments.reset_index(drop=True, inplace=True)
         apartments['comments'] = apartments['comments'].apply(lambda x: ast.literal_eval(x))
-        filename = os.path.join(BASE_DIR, 'relevant_apartments.csv')
+        filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
         apartments.to_csv(filename, index=False)
 
     except Exception as e:
         print(e)
-        apartments.to_csv(os.path.join(BASE_DIR, 'raw_data', 'unprocessed.csv'), index=False)
+        apartments.to_csv(os.path.join(BASE_DIR, 'data/raw_data', 'unprocessed.csv'), index=False)
