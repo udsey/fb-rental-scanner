@@ -3,12 +3,11 @@ from fileinput import filename
 
 import yaml
 from langchain_openai import ChatOpenAI
-from models import LLMResponseModel, PostModel, ApartmentModel
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 import os
 import pandas as pd
-from scr.models import LLMResponseModel
+from scr.models import LLMResponseModel, PostModel, ApartmentModel
 load_dotenv()
 
 BASE_DIR = os.getenv("BASE_DIR")
@@ -131,7 +130,7 @@ def select_relevant_apartments():
     apartments_list = []
     filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
     if os.path.isfile(filename):
-        apartments_list.append(pd.read_csv(filename))
+        apartments_list.append(pd.read_csv(filename, dtype=str))
 
     dirname = os.path.join(BASE_DIR, 'data/raw_data')
     for filename in os.listdir(dirname):
@@ -140,6 +139,9 @@ def select_relevant_apartments():
         apartments_list.append(df)
         os.remove(os.path.join(dirname, filename))
 
+    if not apartments_list:
+        print('No relevant apartments found.')
+        return
     apartments = pd.concat(apartments_list, ignore_index=True)
     apartments.dropna(subset=['url', 'text'], inplace=True)
     apartments.drop_duplicates(subset=['url'], keep='last', inplace=True)
@@ -153,6 +155,7 @@ def select_relevant_apartments():
         apartments['comments'] = apartments['comments'].apply(lambda x: ast.literal_eval(x))
         filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
         apartments.to_csv(filename, index=False)
+        print('Done!')
 
     except Exception as e:
         print(e)
