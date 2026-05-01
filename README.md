@@ -1,10 +1,10 @@
 # fb-rental-scanner
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.9+-blue?logo=python" alt="Python">
-  <img src="https://img.shields.io/badge/LangChain-0.3.x-1C3C3C?logo=chainlink" alt="LangChain">
-  <img src="https://img.shields.io/badge/Groq-API-black?logo=groq" alt="Groq">
-  <img src="https://img.shields.io/badge/Selenium-WebDriver-43B02A?logo=selenium" alt="Selenium">
-  <img src="https://img.shields.io/badge/Pandas-2.x-150458?logo=pandas" alt="Pandas">
+  <img src="https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/LangChain-0.3.x-1C3C3C?logo=chainlink&logoColor=white" alt="LangChain">
+  <img src="https://img.shields.io/badge/Groq-F55036?logo=groq&logoColor=white" alt="Groq">
+  <img src="https://img.shields.io/badge/Selenium-43B02A?logo=selenium&logoColor=white" alt="Selenium">
+  <img src="https://img.shields.io/badge/Pandas-150458?logo=pandas&logoColor=white" alt="Pandas">
 </p>
 
 Automates apartment hunting by scraping Facebook groups, extracting structured data with an LLM, and generating ready-to-send messages to landlords.
