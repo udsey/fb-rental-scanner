@@ -23,19 +23,20 @@ load_dotenv()
 
 FACEBOOK_USERNAME = os.getenv("FACEBOOK_USERNAME")
 FACEBOOK_PASSWORD = os.getenv("FACEBOOK_PASSWORD")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-with open(os.path.join("../config.yaml"), "r") as f:
+with open(os.path.join(BASE_DIR, "config.yaml"), "r") as f:
     config = yaml.safe_load(f)
 
 facebook_groups = [GroupModel(idx=i, **g) for i, g in enumerate(config['groups'])]
 
 
-def save_raw_posts(raw_posts: list, path: str = '../raw_data') -> None:
+def save_raw_posts(raw_posts: list) -> None:
     if len(raw_posts) == 0:
         print("Nothing to save.")
         return
     filename = f"raw_posts_{str(datetime.now())}.csv"
-    full_path = os.path.join(path, filename)
+    full_path = os.path.join(BASE_DIR, '/raw_data', filename)
     df = pd.DataFrame([post.model_dump() for post in raw_posts])
     df.to_csv(full_path, index=False)
     print("Done!")
@@ -259,7 +260,7 @@ def read_new_posts_from_all_groups(driver, facebook_groups):
 
 
 def update_configs():
-    with open('../config.yaml', 'w') as f:
+    with open(os.path.join(BASE_DIR, 'config.yaml'), 'w') as f:
         yaml.dump(config, f, default_flow_style=False)
 
 

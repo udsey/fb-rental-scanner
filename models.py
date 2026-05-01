@@ -19,21 +19,30 @@ class PostModel(BaseModel):
 
 
 class ApartmentModel(BaseModel):
-    author: Optional[str] = None
-    published_at: Optional[datetime] = None
-    property_type: Optional[str] = None
+    contact_number: Optional[str] = None
     location: Optional[str] = None
-    price: Optional[float] = None
-    price_currency: Optional[str] = None
+    price: Optional[float] = 0
+    price_currency: Optional[str] = 'VND'
+    url: Optional[str] = None
+    comments: Optional[str] = None
+    allows_foreigners: bool = True
+
+    published_at: Optional[datetime] = None
+
+    author: Optional[str] = None
+
+    summary: Optional[str] = None
+
+    move_in_from: Optional[str] = None
+    minimum_lease_months: Optional[int] = None
+
+
+
     electricity_rate: Optional[float] = None
     water_rate: Optional[float] = None
     service_fee: Optional[float] = None
     deposit_months: Optional[int] = None
-    move_in_from: Optional[str] = None
-    minimum_lease_months: Optional[int] = None
-    allows_foreigners: bool = True
-    summary: Optional[str] = None
-    url: Optional[str] = None
+    property_type: Optional[str] = None
     original_text: Optional[str] = None
 
 

@@ -1,3 +1,6 @@
+import ast
+from fileinput import filename
+
 import yaml
 from langchain_openai import ChatOpenAI
 from models import LLMResponseModel, PostModel, ApartmentModel
@@ -8,6 +11,7 @@ import pandas as pd
 from models import LLMResponseModel
 load_dotenv()
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 system_prompt = """You are a real estate information extractor. Extract apartment/rental information from Vietnamese real estate posts.
 
@@ -41,7 +45,7 @@ def extract_data(post) -> LLMResponseModel:
 
 
 def extract_criteria():
-    with open('../config.yaml', 'r') as f:
+    with open(os.path.join(BASE_DIR, 'config.yaml'), 'r') as f:
         config = yaml.safe_load(f)
 
     criteria = config.get('criteria', {})
@@ -114,7 +118,7 @@ def filter_apartments(df, criteria):
 
 
 def load_criteria():
-    with open('../config.yaml', 'r') as f:
+    with open(os.path.join(BASE_DIR, "config.yaml"), "r") as f:
         config = yaml.safe_load(f)
 
     criteria = config.get('criteria', {})
@@ -125,18 +129,19 @@ def load_criteria():
 def select_relevant_apartments():
     criteria = load_criteria()
     apartments_list = []
-    if os.path.isfile('../relevant_apartments.csv'):
-        apartments_list.append(pd.read_csv('../relevant_apartments.csv'))
+    filename = os.path.join(BASE_DIR, 'relevant_apartments.csv')
+    if os.path.isfile(filename):
+        apartments_list.append(pd.read_csv(filename))
 
-
-    for filename in os.listdir('../raw_data'):
-        filepath = os.path.join('../raw_data', filename)
+    dirname = os.path.join(BASE_DIR, 'raw_data')
+    for filename in os.listdir(dirname):
+        filepath = os.path.join(dirname, filename)
         df = pd.read_csv(filepath)
         apartments_list.append(df)
-        os.remove('../raw_data/' + filename)
+        os.remove(os.path.join(dirname, filename))
 
     apartments = pd.concat(apartments_list, ignore_index=True)
-    apartments.dropna(subset=['url', 'created_at', 'text'], inplace=True)
+    apartments.dropna(subset=['url', 'text'], inplace=True)
     apartments.drop_duplicates(subset=['url'], keep='last', inplace=True)
 
     try:
@@ -145,8 +150,10 @@ def select_relevant_apartments():
         apartments = filter_apartments(apartments, criteria)
         apartments.sort_values(by=['price', 'published_at'], inplace=True)
         apartments.reset_index(drop=True, inplace=True)
-        apartments.to_csv('../relevant_apartments.csv', index=False)
+        apartments['comments'] = apartments['comments'].apply(lambda x: ast.literal_eval(x))
+        filename = os.path.join(BASE_DIR, 'relevant_apartments.csv')
+        apartments.to_csv(filename, index=False)
 
     except Exception as e:
         print(e)
-        apartments.to_csv('../raw_data/unprocessed.csv', index=False)
+        apartments.to_csv(os.path.join(BASE_DIR, 'raw_data', 'unprocessed.csv'), index=False)
