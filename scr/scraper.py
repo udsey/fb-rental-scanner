@@ -3,10 +3,8 @@ import os
 import random
 import time
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 from tqdm import tqdm
-import yaml
-from dotenv import load_dotenv
 import logging
 
 import pandas as pd
@@ -36,16 +34,17 @@ def save_raw_posts(raw_posts: list):
     filename = f"raw_posts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     full_path = os.path.join(RAW_DATA_DIR, filename)
     df = pd.DataFrame([post.model_dump() for post in raw_posts])
+    os.makedirs(RAW_DATA_DIR, exist_ok=True)
     df.to_csv(full_path, index=False)
     logger.info(f"{df.shape[0]} posts was saved in {full_path}")
 
 
-def text_to_datetime(created_at: str) -> (datetime | None):
+def text_to_datetime(created_at: str) -> Optional[datetime]:
     try:
         return datetime.strptime(created_at.replace('\u202f', ' ')
                              , '%A, %B %d, %Y at %I:%M %p')
     except Exception as e:
-        logger.exception(f"Error: {e}")
+        logger.exception(e)
 
 
 def cooldown():
@@ -91,13 +90,12 @@ def login_facebook(driver: webdriver,
         logger.info("Please log in.")
 
     else:
-        username_input = wait.until(((scraper_config.username_input.as_tuple())))
+        username_input = wait.until(EC.presence_of_element_located(scraper_config.username_input.as_tuple()))
         username_input.send_keys(FACEBOOK_USERNAME)
-
-        password_input = driver.find_element(scraper_config.password_input.as_tuple())
+        password_input = driver.find_element(*scraper_config.password_input.as_tuple())
         password_input.send_keys(FACEBOOK_PASSWORD)
 
-        login_button = driver.find_element(scraper_config.login_button.as_tuple())
+        login_button = driver.find_element(*scraper_config.login_button.as_tuple())
         login_button.click()
 
     # TODO: add capcha detector
@@ -125,16 +123,16 @@ def last_idx(driver: webdriver,
         if not text or "New posts" in text:
             continue
 
-        globs = post_element.find_elements(scraper_config.share_with)
+        globs = post_element.find_elements(*scraper_config.shared_with.as_tuple())
         if len(globs) == 0:
             continue
 
-        panel = globs[0].find_element(scraper_config.panel.as_tuple())
-        share = panel.find_elements(scraper_config.share.as_tuple)[-3]
+        panel = globs[0].find_element(*scraper_config.panel.as_tuple())
+        share = panel.find_elements(*scraper_config.share.as_tuple())[-3]
         ActionChains(driver).move_to_element(share).perform()
         cooldown()
 
-        created_at_el = driver.find_elements(scraper_config.created_at.as_tuple())
+        created_at_el = driver.find_elements(*scraper_config.created_at.as_tuple())
         if len(created_at_el) == 0:
             continue
 
@@ -156,7 +154,7 @@ def scroll_till_last(driver: webdriver,
     limit = scraper_config.cycle_limit
 
     for i in range(limit):
-        post_elements = driver.find_elements(scraper_config.feed)
+        post_elements = driver.find_elements(*scraper_config.feed.as_tuple())
         idx, created_at = last_idx(
             driver=driver,
             scraper_config=scraper_config,
@@ -175,11 +173,11 @@ def scroll_till_last(driver: webdriver,
 
 def get_created_at(driver: webdriver, 
                    scraper_config: ScraperConfigModel,
-                   share: WebElement) -> (datetime | None):
+                   share: WebElement) -> Optional[datetime]:
     """Get post creation time."""
     ActionChains(driver).move_to_element(share).perform()
     cooldown()
-    created_at = driver.find_elements(scraper_config.created_at.as_tuple())
+    created_at = driver.find_elements(*scraper_config.created_at.as_tuple())
     if created_at:
         return text_to_datetime(created_at[0].text)
     return None
@@ -191,16 +189,16 @@ def read_post(driver: webdriver,
     """Extract facebook post."""
     post = FacebookPostModel()
     try:
-        globe = post_element.find_element(scraper_config.shared_with.as_tuple())
-        panel = globe.find_element(scraper_config.panel.as_tuple())
-        share = panel.find_elements(scraper_config.share)[-3]
+        globe = post_element.find_element(*scraper_config.shared_with.as_tuple())
+        panel = globe.find_element(*scraper_config.panel.as_tuple())
+        share = panel.find_elements(*scraper_config.share.as_tuple())[-3]
 
         post.created_at = get_created_at(driver=driver,
                                          scraper_config=scraper_config,
                                          share=share)
 
-        post_container = panel.find_element(scraper_config.post_container.as_tuple())
-        see_more = post_element.find_elements(scraper_config.see_more.as_tuple())
+        post_container = panel.find_element(*scraper_config.post_container.as_tuple())
+        see_more = post_element.find_elements(*scraper_config.see_more.as_tuple())
         if see_more:
             see_more[0].click()
 
@@ -209,10 +207,10 @@ def read_post(driver: webdriver,
         post.author = post_content[0].split('\n')[0].strip()
         post.text = post_content[-1].split("See translation")[0].strip()
 
-        post.url = share.find_element(scraper_config.post_url).get_attribute("href").split("?")[0]
+        post.url = share.find_element(*scraper_config.post_url.as_tuple()).get_attribute("href").split("?")[0]
 
-    except:
-        pass
+    except Exception as e:
+        logger.exception(e)
     return post
 
 
@@ -223,14 +221,17 @@ def read_visible_posts(driver: webdriver,
     posts = []
     seen_urls = set()
 
-    post_elements = driver.find_elements(scraper_config.feed.as_tuple())
+    post_elements = driver.find_elements(*scraper_config.feed.as_tuple())
     try:
-        for post_element in tqdm(reversed(post_elements), desc="Reading new posts:"):
+        for post_element in tqdm(reversed(post_elements), 
+                                 total=len(post_elements), 
+                                 desc="Reading new posts:", 
+                                 bar_format='{percentage:3.0f}%|{bar}|'):
             text = post_element.text
             if not text or "New posts" in text:
                 continue
             scroll_into_element(driver=driver, 
-                                post_element=post_element)
+                                element=post_element)
             cooldown()
             post = read_post(driver=driver, 
                              scraper_config=scraper_config,
@@ -244,8 +245,8 @@ def read_visible_posts(driver: webdriver,
 
             seen_urls.add(post.url)
             posts.append(post)
-    except:
-        pass
+    except Exception as e:
+        logger.exception(e)
     return posts
 
 
@@ -294,9 +295,9 @@ def read_new_posts_from_all_groups(driver: webdriver):
                                                scraper_config=scraper_config,
                                                group_info=group_info)
             raw_posts += group_posts
-            config['groups'][group_info.idx]['last_visited'] = current_time.isoformat()
+            group_info.last_visited = current_time
         except Exception as e:
-            logger.exception("Error", e)
+            logger.exception(e)
     save_raw_posts(raw_posts=raw_posts)
     save_config(config=config.user_config, filename="user_config.yaml")
     logger.info("Done!")

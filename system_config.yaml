@@ -26,4 +26,50 @@ llm_config:
   model_name: llama3:latest
   model_type: local
   temperature: 0.0
+runner_config:
+  interval_mins: 30
+  wait_for_user_interval_mins: 2
 scraper_config:
+  cooldown_max: 4
+  cooldown_min: 2
+  created_at:
+    by: css selector
+    value: '[role=''tooltip'']'
+  cycle_limit: 300
+  facebook_url: https://facebook.com
+  feed:
+    by: css selector
+    value: div[role='feed'] > div
+  login_button:
+    by: css selector
+    value: div[role='button'][aria-label='Log in']
+  max_timedelta_mins: 60
+  panel:
+    by: xpath
+    value: ../../../..
+  password_input:
+    by: name
+    value: pass
+  post_container:
+    by: xpath
+    value: ../../../../../../..
+  post_url:
+    by: css selector
+    value: a[href*='/posts/']
+  scroll_y: 5000
+  search_facebook:
+    by: css selector
+    value: input[placeholder='Search Facebook']
+  see_more:
+    by: xpath
+    value: .//*[contains(text(), 'See more')]
+  share:
+    by: xpath
+    value: ./*
+  shared_with:
+    by: css selector
+    value: '[title*=''Shared with'']'
+  username_input:
+    by: name
+    value: email
+  wait_timeout: 1000

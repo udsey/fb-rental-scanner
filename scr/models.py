@@ -1,12 +1,24 @@
 from datetime import datetime
 from typing import Literal, Optional, List, Any
 import math
-from pydantic import BaseModel, Field, field_validator, model_validator
-from selenium.webdriver.common.by import ByType
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from selenium.webdriver.common.by import ByType, By
+from uuid import uuid1
 
+BY_MAP = {
+    "id": By.ID,
+    "xpath": By.XPATH,
+    "link text": By.LINK_TEXT,
+    "partial link text": By.PARTIAL_LINK_TEXT,
+    "name": By.NAME,
+    "tag name": By.TAG_NAME,
+    "class name": By.CLASS_NAME,
+    "css selector": By.CSS_SELECTOR,
+}
 
 class FacebookGroupModel(BaseModel):
-    idx: Optional[int] = None
+    model_config = ConfigDict(frozen=False)
+    id: str = uuid1().hex
     url: str
     last_visited: Optional[datetime] = None
 
@@ -165,7 +177,7 @@ class LocatorModel(BaseModel):
     value: str
 
     def as_tuple(self):
-        return (self.by, self.value)
+        return (BY_MAP[self.by], self.value)
 
 
 class ScraperConfigModel(BaseModel):
@@ -229,13 +241,18 @@ class ScraperConfigModel(BaseModel):
     )
 
     
+class RunnerConfigModel(BaseModel):
+    interval_mins: Optional[int] = 20
+    wait_for_user_interval_mins: Optional[int] = 2
+    
 
 
 class SystemConfigModel(BaseModel):
     llm_config: LLMConfigModel
     scraper_config: ScraperConfigModel
+    runner_config: RunnerConfigModel
 
 
 class ConfigModel(BaseModel):
     user_config: UserConfigModel
-    system_config: Optional[SystemConfigModel]
+    system_config: SystemConfigModel

@@ -14,6 +14,7 @@ logging.basicConfig(
     ]
 )
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("WDM").setLevel(logging.WARNING)
 
 
 def load_config_file(filename: str) -> dict:
@@ -56,7 +57,5 @@ RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw_data')
 
 config = load_config()
 
-
-save_config(config=config.user_config, filename="user_config.yaml")
-save_config(config=config.system_config, filename="system_config.yaml")
-
+save_config(config.user_config, "user_config.yaml")
+save_config(config.system_config, "system_config.yaml")

@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from typing import List, Optional
 
@@ -71,7 +72,10 @@ def get_apartments_table(df: pd.DataFrame, pause: float = 1) -> List[pd.DataFram
     apartments = []
     unprocessed = []
 
-    for idx, row in tqdm(df.iterrows(), total=len(df), desc="Extracting apartments"):
+    for idx, row in tqdm(df.iterrows(), 
+                         total=len(df), 
+                         desc="Extracting apartments",
+                         file=sys.stdout):
         try:
             llm_result = extract_data(row["raw_content"])
             apt = ApartmentModel(
@@ -139,7 +143,7 @@ def preprocess_df(df: pd.DataFrame, filepath: str = None) -> Optional[pd.DataFra
         df.sort_values(by=list(filter_cols), inplace=True)
 
         df.reset_index(drop=True, inplace=True)
-        if filepath:
+        if filepath and not df.empty:
             df.to_csv(
                 os.path.join(filepath), 
                 index=False)
@@ -209,7 +213,8 @@ def select_relevant_apartments():
 
         if unsorted is not None:
             unsorted_apartments = pd.concat([unsorted, unsorted_apartments])
-            preprocess_df(
+
+        preprocess_df(
                 df=unsorted_apartments,
                 filepath=os.path.join(DATA_DIR, 'unsorted_apartments.csv'))
             
