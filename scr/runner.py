@@ -3,6 +3,8 @@ import sys
 import select
 import time
 import logging
+import tty
+import termios
 import pandas as pd
 from scr.setup import config, RAW_DATA_DIR, DATA_DIR
 from scr.parser import select_relevant_apartments
@@ -20,13 +22,19 @@ def check_relevant() -> bool:
 
 
 def wait_for_input(n_relevant, timeout: int = 30) -> bool:
-    """Wait for user input."""
-    logger.info(f"There are {n_relevant} unreviewed relevant apartments. Press 'y' to review, 'n' to skip (auto-skip in {timeout}mins).")    
-    ready, _, _ = select.select([sys.stdin], [], [], timeout)
-    if ready:
-        answer = sys.stdin.readline().strip().lower()
-        return answer == 'y'
-    return False
+    """Wait for single keypress input."""
+    logger.info(f"There are {n_relevant} unreviewed relevant apartments. Press 'y' to review, any other key to skip (auto-skip in {timeout}s).")
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ready, _, _ = select.select([sys.stdin], [], [], timeout)
+        if ready:
+            answer = sys.stdin.read(1).lower()
+            return answer == 'y'
+        return False
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 
 if __name__ == "__main__":
