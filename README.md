@@ -62,9 +62,9 @@ make generate-messages   # generate messages for all relevant apartments
 ---
 
 ## Project structure
-
+```
 fb-rental-scanner/
-├── [demo.ipynb](/demo.ipynb)       # step-by-step Jupyter walkthrough
+├── demo.ipynb                     # step-by-step Jupyter walkthrough
 ├── user_config.yaml                # groups, criteria, message template
 ├── system_config.yaml              # LLM, scraper, and runner settings
 ├── .env                            # secrets
@@ -81,7 +81,7 @@ fb-rental-scanner/
 │   ├── relevant_apartments.csv     # filtered apartments
 │   └── messages_<timestamp>.txt    # generated messages ready to send
 └── makefile
-
+```
 ---
 
 ## Configuration

@@ -23,8 +23,10 @@ from scr.models import FacebookPostModel, FacebookGroupModel, ScraperConfigModel
 from scr.setup import config, RAW_DATA_DIR, FACEBOOK_PASSWORD, FACEBOOK_USERNAME, save_config
 
 logger = logging.getLogger(__name__)
+#logger.setLevel(logging.DEBUG)
 
 facebook_groups = config.user_config.facebook_groups
+
 
 
 def save_raw_posts(raw_posts: list):
@@ -44,7 +46,7 @@ def text_to_datetime(created_at: str) -> Optional[datetime]:
         return datetime.strptime(created_at.replace('\u202f', ' ')
                              , '%A, %B %d, %Y at %I:%M %p')
     except Exception as e:
-        logger.exception(e)
+        logger.debug(e, exc_info=True)
 
 
 def cooldown():
@@ -210,7 +212,7 @@ def read_post(driver: webdriver,
         post.url = share.find_element(*scraper_config.post_url.as_tuple()).get_attribute("href").split("?")[0]
 
     except Exception as e:
-        logger.exception(e)
+        logger.debug(e, exc_info=True)
     return post
 
 
@@ -246,7 +248,7 @@ def read_visible_posts(driver: webdriver,
             seen_urls.add(post.url)
             posts.append(post)
     except Exception as e:
-        logger.exception(e)
+        logger.debug(e, exc_info=True)
     return posts
 
 
@@ -297,7 +299,7 @@ def read_new_posts_from_all_groups(driver: webdriver):
             raw_posts += group_posts
             group_info.last_visited = current_time
         except Exception as e:
-            logger.exception(e)
+            logger.debug(e, exc_info=True)
     save_raw_posts(raw_posts=raw_posts)
     save_config(config=config.user_config, filename="user_config.yaml")
     logger.info("Done!")
