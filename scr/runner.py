@@ -70,7 +70,7 @@ if __name__ == "__main__":
                     
             time.sleep(config.system_config.runner_config.interval_mins * 60)
         except Exception as e:
-            logger.exception(e)
+            logger.debug(e, exc_info=True)
 
 
 
