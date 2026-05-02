@@ -1,162 +1,228 @@
-import ast
-from fileinput import filename
-
-import yaml
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from dotenv import load_dotenv
 import os
+import time
+from typing import List, Optional
+
+from langchain_groq import ChatGroq
+from langchain_ollama import ChatOllama
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.language_models import BaseChatModel
+from dotenv import load_dotenv
 import pandas as pd
-from scr.models import LLMResponseModel, PostModel, ApartmentModel
-load_dotenv()
+from pydantic import BaseModel
+import logging
+from tqdm import tqdm
 
-BASE_DIR = os.getenv("BASE_DIR")
+from scr.models import CriteriaModel, LLMResponseModel, FacebookPostModel, ApartmentModel, LocationModel
+from scr.setup import DATA_DIR, RAW_DATA_DIR, config
 
-system_prompt = """You are a real estate information extractor. Extract apartment/rental information from Vietnamese real estate posts.
-
-Rules:
-1. Extract ONLY information explicitly mentioned in the text
-2. If price is mentioned in millions (e.g., "26 triệu"), convert to 26.0
-4. If information is not found, use default values (None for Optional fields)
-5. For location, keep original Vietnamese names, do NOT translate names
-6. Always consider Vietnamese currency (VND) as default currency
-7. Set allows_foreigners to true unless explicitly stated otherwise
-8. For move_in_from: Look for phrases like "Move-in from", "Available from", "From", "Move-in date". If a date is mentioned (e.g., "May 5th", "05/05", "ngày 5/5"), always extract and convert to YYYY-MM-DD format. Never leave as "not specified" when dates are clearly present.
-9. Return confidence_score based on how much information was found (0-1)
-
-Post text to analyze:
-{content}
-"""
-prompt = ChatPromptTemplate.from_messages([
-    ("system", system_prompt),
-    ("human", "{content}")
-])
-
-llm = ChatOpenAI(model="openai/gpt-oss-20b",
-                 base_url="https://api.groq.com/openai/v1",
-                 temperature=0.1
-                 )
-
-structured_llm = prompt | llm.with_structured_output(LLMResponseModel)
-
-def extract_data(post) -> LLMResponseModel:
-    return structured_llm.invoke({"content": post})
+logger = logging.getLogger(__name__)
 
 
-def extract_criteria():
-    with open(os.path.join(BASE_DIR, 'config.yaml'), 'r') as f:
-        config = yaml.safe_load(f)
+def get_llm() -> BaseChatModel:
+    """Get llm with params."""
+    model_type = config.system_config.llm_config.model_type
 
-    criteria = config.get('criteria', {})
-    criteria = {k: v for k, v in criteria.items() if v is not None}
+    logger.info(f"Loading {model_type} LLM: {config.system_config.llm_config.model_name}")
 
-
-def get_apartments_table(df):
-    apartments = []
-
-    for idx, row in df.iterrows():
-        llm_result = extract_data(row["text"])
-        # Create ApartmentModel with row data + LLM results
-        apt = ApartmentModel(
-            author=row["author"],
-            published_at=row["created_at"],
-            url=row["url"],
-            original_text=row["text"],
-            # LLM extracted fields
-            property_type=llm_result.property_type,
-            location=llm_result.location,
-            price=llm_result.price or 0.0,
-            price_currency=llm_result.price_currency,
-            electricity_rate=llm_result.electricity_rate,
-            water_rate=llm_result.water_rate,
-            service_fee=llm_result.service_fee,
-            deposit_months=llm_result.deposit_months,
-            move_in_from=llm_result.move_in_from,
-            minimum_lease_months=llm_result.minimum_lease_months,
-            allows_foreigners=llm_result.allows_foreigners,
-            summary=llm_result.summary
+    if model_type == "groq":
+        return ChatGroq(
+        model=config.system_config.llm_config.model_name, 
+        temperature=config.system_config.llm_config.temperature
         )
-        apartments.append(apt.model_dump())
+    elif model_type == "local":
+        return ChatOllama(
+            model="llama3:latest",
+            temperature=config.system_config.llm_config.temperature
+        )
+    else:
+        logger.error(f"Unknown model type: '{model_type}'. Expected 'groq' or 'local'.")
+        raise
 
+
+def get_structured_llm(prompt_text: str, output_model: BaseModel) -> BaseChatModel:
+    """Return structured llm."""
+    prompt = ChatPromptTemplate.from_messages([
+    ("system", prompt_text),
+    ("human", "{content}")
+    ])
+
+    structured_llm = prompt | llm.with_structured_output(output_model)
+
+    return structured_llm
+
+
+
+def extract_data(text: str) -> LLMResponseModel:
+    """Extrac data from raw text."""
+    prompt_text = config.system_config.llm_config.extract_data_prompt
+    output_model = LLMResponseModel
+    structured_llm = get_structured_llm(
+        prompt_text=prompt_text,
+        output_model=output_model
+    )
+    return structured_llm.invoke({"content": text})
+
+
+def get_apartments_table(df: pd.DataFrame, pause: float = 1) -> List[pd.DataFrame]:
+    """Get enriched apartment table with data extracted."""
+
+    logger.info(f"Processing {len(df)} apartments...")
+
+    apartments = []
+    unprocessed = []
+
+    for idx, row in tqdm(df.iterrows(), total=len(df), desc="Extracting apartments"):
+        try:
+            llm_result = extract_data(row["raw_content"])
+            apt = ApartmentModel(
+                    **llm_result.model_dump(),
+                    url=row["url"],
+                    published_at=row["created_at"],
+                    original_text=row["text"],
+                )
+            apartments.append(apt.model_dump())
+        except Exception as e:
+            logger.error(f"Failed to process row {idx}: {e}")
+            unprocessed.append(row)
+        if pause:
+            time.sleep(pause)
+
+    if len(unprocessed) != 0:
+        logger.info(f"Processed {len(apartments)} apartments successfully, {len(unprocessed)} failed.")
     apartments = pd.DataFrame(apartments)
-    return apartments
+    unprocessed = pd.DataFrame(unprocessed)
+    return apartments, unprocessed
 
 
-def filter_apartments(df, criteria):
-    # Start with all True mask
+def check_location(col: pd.Series, location_criteria: LocationModel) -> pd.Series:
+    # TODO: implement location filtering
+    logger.warning("Location filtering not implemented yet, skipping.")
+    return pd.Series([True] * len(col), index=col.index)
+
+
+def filter_apartments(df: pd.DataFrame, criteria: CriteriaModel):
+    """Filter apartments with user criteria."""
+
     mask = pd.Series([True] * len(df), index=df.index)
 
-    # Apply each non-None criterion
-    if criteria.get('price') is not None:
-        mask &= df['price'] <= criteria['price']
+    if criteria.min_price is not None:
+        mask &= df["price"] >= criteria.min_price
 
-    if criteria.get('allows_foreigners') is not None:
-        mask &= df['allows_foreigners'] == criteria['allows_foreigners']
+    if criteria.max_price is not None:
+        mask &= df["price"] <= criteria.max_price
 
-    if criteria.get('property_type') is not None:
-        mask &= df['property_type'].str.contains(criteria['property_type'], case=False, na=False)
+    if criteria.allows_foreigners is not None:
+        mask &= df['allows_foreigners'] == criteria.allows_foreigners
 
-    if criteria.get('location') is not None:
-        mask &= df['location'].str.contains(criteria['location'], case=False, na=False)
+    if criteria.property_type is not None:
+        mask &= df['property_type'].str.contains(criteria.property_type, case=False, na=False)
 
-    if criteria.get('minimum_lease_months') is not None:
-        mask &= df['minimum_lease_months'] <= criteria['minimum_lease_months']
-
-    if criteria.get('deposit_months') is not None:
-        mask &= df['deposit_months'] <= criteria['deposit_months']
-
-    if criteria.get('price_currency') is not None:
-        mask &= df['price_currency'] == criteria['price_currency']
-
-    # Date filter (published after given date)
-    if criteria.get('published_at') is not None:
-        mask &= df['published_at'] >= criteria['published_at']
+    if criteria.location is not None:
+        mask &= check_location(df['location'], criteria.location)
+        
+    if criteria.minimum_lease_months is not None:
+        mask &= df['minimum_lease_months'] <= criteria.minimum_lease_months
 
     return df[mask].copy()
 
 
+def preprocess_df(df: pd.DataFrame, filepath: str = None) -> Optional[pd.DataFrame]:
+    """Preprocess df and save is filepath provided."""
+    try:
+        df = df.copy()
+        df_cols = set(df.columns.to_list())
 
-def load_criteria():
-    with open(os.path.join(BASE_DIR, "config.yaml"), "r") as f:
-        config = yaml.safe_load(f)
+        filter_cols = df_cols & {'url', 'original_text', 'raw_content'}
+        df.drop_duplicates(subset=list(filter_cols), keep='last', inplace=True)
 
-    criteria = config.get('criteria', {})
-    criteria = {k: v for k, v in criteria.items() if v is not None}
-    return criteria
+        filter_cols = df_cols & {'price', 'published_at'}
+        df.sort_values(by=list(filter_cols), inplace=True)
+
+        df.reset_index(drop=True, inplace=True)
+        if filepath:
+            df.to_csv(
+                os.path.join(filepath), 
+                index=False)
+        return df
+    except Exception as e:
+        logger.exception(f"Failed to preprocess df: {e}")
+        return None
+
+
+def load_df(filepath: str) -> Optional[pd.DataFrame]:
+    """Try load df, if empry return None."""
+    if os.path.isfile(filepath):
+        try:
+            df = pd.read_csv(filepath, dtype=str)
+            if not df.empty:
+                return df
+        except pd.errors.EmptyDataError:
+            pass
+    return None
+
 
 
 def select_relevant_apartments():
-    criteria = load_criteria()
+    """Parse raw apartments data and select relevant."""
+
     apartments_list = []
-    filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
-    if os.path.isfile(filename):
-        apartments_list.append(pd.read_csv(filename, dtype=str))
+    unsorted_list = []
 
-    dirname = os.path.join(BASE_DIR, 'data/raw_data')
-    for filename in os.listdir(dirname):
-        filepath = os.path.join(dirname, filename)
-        df = pd.read_csv(filepath)
+    filepath = os.path.join(DATA_DIR, 'relevant_apartments.csv')
+    df = load_df(filepath)
+    if df is not None:
         apartments_list.append(df)
-        os.remove(os.path.join(dirname, filename))
 
-    if not apartments_list:
-        print('No relevant apartments found.')
+    filepath = os.path.join(DATA_DIR, 'unsorted_apartments.csv')
+    unsorted = load_df(filepath)
+
+    for filename in os.listdir(RAW_DATA_DIR):
+        filepath = os.path.join(RAW_DATA_DIR, filename)
+        df = load_df(filepath)
+        if df is not None:
+            apartments_list.append(df)
+            os.remove(os.path.join(RAW_DATA_DIR, filename))
+
+    if len(apartments_list) == 0:
+        logger.info('No apartments available for selection.')
         return
+
     apartments = pd.concat(apartments_list, ignore_index=True)
-    apartments.dropna(subset=['url', 'text'], inplace=True)
-    apartments.drop_duplicates(subset=['url'], keep='last', inplace=True)
-
+    apartments = preprocess_df(apartments)
+    if apartments is None:
+        logger.info('No apartments available for selection.')
+        return
     try:
+        logger.info(f"Found {len(apartments_list)} file(s) to process, {len(apartments)} total rows.")
+        unsorted_apartments, unprocessed = get_apartments_table(apartments)
+        criteria = config.user_config.criteria
+        apartments = filter_apartments(unsorted_apartments, criteria)
+        logger.info(f"Filtered down to {len(apartments)} relevant apartments.")
 
-        apartments = get_apartments_table(apartments)
-        apartments = filter_apartments(apartments, criteria)
-        apartments.sort_values(by=['price', 'published_at'], inplace=True)
-        apartments.reset_index(drop=True, inplace=True)
-        apartments['comments'] = apartments['comments'].apply(lambda x: ast.literal_eval(x))
-        filename = os.path.join(BASE_DIR, 'data/relevant_apartments.csv')
-        apartments.to_csv(filename, index=False)
-        print('Done!')
+        preprocess_df(
+            df=apartments,
+            filepath=os.path.join(DATA_DIR, 'relevant_apartments.csv'))
+        
+        preprocess_df(
+            df=unprocessed,
+            filepath=os.path.join(RAW_DATA_DIR, 'unprocessed.csv'))
+
+        if unsorted is not None:
+            unsorted_apartments = pd.concat([unsorted, unsorted_apartments])
+            preprocess_df(
+                df=unsorted_apartments,
+                filepath=os.path.join(DATA_DIR, 'unsorted_apartments.csv'))
+            
+        logger.info(f"Saved results to {DATA_DIR}")
+        logger.info('Done!')
 
     except Exception as e:
-        print(e)
-        apartments.to_csv(os.path.join(BASE_DIR, 'data/raw_data', 'unprocessed.csv'), index=False)
+        logger.exception(f"Pipeline failed: {e}")
+        unprocessed = pd.concat([unprocessed, apartments])
+        preprocess_df(
+            df=unprocessed,
+            filepath=os.path.join(RAW_DATA_DIR, 'unprocessed.csv'))
+
+
+
+llm = get_llm()

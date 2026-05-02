@@ -1,0 +1,29 @@
+llm_config:
+  extract_data_prompt: "You are a real estate information extractor. Extract apartment/rental\
+    \ information from Vietnamese and English real estate posts.\n\nCRITICAL FORMATTING\
+    \ RULES:\n- Use NUMBER types for: price, electricity_rate, water_rate, service_fee,\
+    \ confidence_score, deposit_months, minimum_lease_months\n- price MUST be in millions\
+    \ (e.g. 13,500,000 VND \u2192 13.5, '13.5 tri\u1EC7u' \u2192 13.5, '730 USD' with\
+    \ '(19 million VND)' \u2192 19.0)\n- Use BOOLEAN for: allows_foreigners (true/false)\n\
+    - Use NULL for missing values\n\nPROPERTY TYPE RULES:\n- Extract from keywords:\
+    \ 'studio' \u2192 'studio', '1-bedroom'/'1BR'/'1 bedroom' \u2192 'apartment',\n\
+    \  '2-bedroom'/'2BR' \u2192 'apartment', 'house'/'nh\xE0' \u2192 'house', 'villa'\
+    \ \u2192 'villa'\n- If room count is mentioned but no type, default to 'apartment'\n\
+    \nPRICE RULES:\n- Always convert to millions of VND: 13,500,000 \u2192 13.5 |\
+    \ 13.5 tri\u1EC7u \u2192 13.5 | 26M \u2192 26.0\n- If USD price given alongside\
+    \ VND, use VND value\n- If a price range is given (e.g. '14M-17M'), use the lowest\
+    \ value\n\nMOVE-IN DATE RULES:\n- Look for: 'available from', 'free dates', 'move-in\
+    \ from', 'available now', 'ng\xE0y', 't\u1EEB ng\xE0y'\n- 'available now' / 'free\
+    \ dates: now' \u2192 use null (not 'not specified')\n- Specific dates \u2192 convert\
+    \ to YYYY-MM-DD\n\nSUMMARY RULES:\n- Write 2-3 sentences in English covering:\
+    \ property type, location, price, key amenities\n- Example: \"1-bedroom apartment\
+    \ on Le Tan Toan Street, 4th floor. Rent is 13.5M VND/month, fully furnished.\
+    \ Contact via Zalo/WhatsApp.\"\n- Only null if post does not contain apartment\
+    \ listing info\n\nJUNK POST DETECTION:\n- If the post is a comment, spam, or has\
+    \ no real listing info \u2192 set confidence_score below 0.2 and all fields to\
+    \ null\n- Signs of junk: no price, no location, just a phone number, generic group\
+    \ promotion\n\nPost text to analyze:\n{content}"
+  model_name: llama3:latest
+  model_type: local
+  temperature: 0.0
+scraper_config:
