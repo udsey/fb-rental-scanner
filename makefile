@@ -6,7 +6,8 @@ help:
 	@echo "  make review-apartments 	- Review and remove apartments from CSV"
 	@echo "  make generate-messages 	- Generate texts for all relevant apartments"
 	@echo "  make filter-raw        	- Filter apartments from scraper's raw files"
-	@echo "  make monitor-apartments    - Monitoring apartments"
+	@echo "  make monitor-apartments    	- Monitoring apartments"
+	@echo "  make scrap-facebook        	- Scrap facebook groups"
 
 add-apartments:
 	@uv run python -c "from scr.manual_operations import manually_add_relevant_apartments; manually_add_relevant_apartments()"
@@ -22,3 +23,11 @@ filter-raw:
 
 monitor-apartments:
 	@uv run python -m scr.runner
+
+scrap-facebook:
+	@uv run python -c 'from scr.setup import config, RAW_DATA_DIR, DATA_DIR; \
+		from scr.scraper import login_facebook, configure_chrome, read_new_posts_from_all_groups; \
+		driver, wait = configure_chrome(); \
+		scraper_config = config.system_config.scraper_config; \
+		login_facebook(driver=driver, scraper_config=scraper_config, wait=wait); \
+		read_new_posts_from_all_groups(driver=driver)'

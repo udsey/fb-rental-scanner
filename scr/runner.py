@@ -1,3 +1,4 @@
+import gc
 import os
 import sys
 import select
@@ -77,6 +78,8 @@ if __name__ == "__main__":
                     generate_messages()
             logger.info(f"Done. Next run scheduled in {config.system_config.runner_config.interval_mins} minutes")             
             time.sleep(config.system_config.runner_config.interval_mins * 60)
+            gc.collect()
+
         except Exception as e:
             logger.debug(e, exc_info=True)
 

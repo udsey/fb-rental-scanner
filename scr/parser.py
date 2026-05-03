@@ -2,6 +2,7 @@ import os
 import sys
 import time
 from typing import List, Optional
+from send2trash import send2trash
 
 from langchain_groq import ChatGroq
 from langchain_ollama import ChatOllama
@@ -67,8 +68,6 @@ def extract_data(text: str) -> LLMResponseModel:
 def get_apartments_table(df: pd.DataFrame, pause: float = 1) -> List[pd.DataFrame]:
     """Get enriched apartment table with data extracted."""
 
-    logger.info(f"Processing {len(df)} apartments...")
-
     apartments = []
     unprocessed = []
 
@@ -82,7 +81,7 @@ def get_apartments_table(df: pd.DataFrame, pause: float = 1) -> List[pd.DataFram
                     **llm_result.model_dump(),
                     url=row["url"],
                     published_at=row["created_at"],
-                    original_text=row["text"],
+                    original_text=row["raw_content"],
                 )
             apartments.append(apt.model_dump())
         except Exception as e:
@@ -185,7 +184,7 @@ def select_relevant_apartments():
         df = load_df(filepath)
         if df is not None:
             apartments_list.append(df)
-            os.remove(os.path.join(RAW_DATA_DIR, filename))
+            send2trash(os.path.join(RAW_DATA_DIR, filename))
 
     if len(apartments_list) == 0:
         logger.info('No apartments available for selection.')
@@ -197,7 +196,7 @@ def select_relevant_apartments():
         logger.info('No apartments available for selection.')
         return
     try:
-        logger.info(f"Found {len(apartments_list)} file(s) to process, {len(apartments)} total rows.")
+        logger.info(f"Found {len(apartments)} rows to process.")
         unsorted_apartments, unprocessed = get_apartments_table(apartments)
         criteria = config.user_config.criteria
         apartments = filter_apartments(unsorted_apartments, criteria)
