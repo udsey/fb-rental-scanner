@@ -179,6 +179,9 @@ def select_relevant_apartments():
     filepath = os.path.join(DATA_DIR, 'unsorted_apartments.csv')
     unsorted = load_df(filepath)
 
+    filepath = os.path.join(DATA_DIR, 'relevant_apartments.csv')
+    previous_relevant = load_df(filepath)
+
     for filename in os.listdir(RAW_DATA_DIR):
         filepath = os.path.join(RAW_DATA_DIR, filename)
         df = load_df(filepath)
@@ -202,6 +205,8 @@ def select_relevant_apartments():
         apartments = filter_apartments(unsorted_apartments, criteria)
         logger.info(f"Filtered down to {len(apartments)} relevant apartments.")
 
+        if previous_relevant is not None:
+            apartments = pd.concat([previous_relevant, apartments])
         preprocess_df(
             df=apartments,
             filepath=os.path.join(DATA_DIR, 'relevant_apartments.csv'))
