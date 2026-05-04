@@ -14,12 +14,12 @@ from scr.manual_operations import review_apartments, generate_messages
 
 logger = logging.getLogger(__name__)
 
-def check_relevant() -> bool:
+def check_relevant() -> int:
     filepath = os.path.join(DATA_DIR, 'relevant_apartments.csv')
-    if os.path.isfile(filepath):
-        df = pd.read_csv(filepath)
-    n_relevant = df.shape[0]
-    return n_relevant
+    if not os.path.isfile(filepath):
+        return 0
+    df = pd.read_csv(filepath)
+    return df.shape[0]
 
 
 def wait_for_input(n_relevant, timeout: int = 30) -> bool:
