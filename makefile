@@ -1,4 +1,4 @@
-.PHONY: help add-apartments review-apartments
+.PHONY: help add-apartments review-apartments generate-messages filter-raw monitor-apartments scrap-facebook
 
 help:
 	@echo "Available commands:"
