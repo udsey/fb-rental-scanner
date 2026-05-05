@@ -22,8 +22,9 @@ def check_relevant() -> int:
     return df.shape[0]
 
 
-def wait_for_input(n_relevant, timeout: int = 30) -> bool:
+def wait_for_input(n_relevant, timeout: int = 1) -> bool:
     """Wait for single keypress input."""
+    timeout = timeout * 60
     logger.info(f"There are {n_relevant} unreviewed relevant apartments. Press 'y' to review, any other key to skip (auto-skip in {timeout}s).")
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
