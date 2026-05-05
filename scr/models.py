@@ -18,7 +18,7 @@ BY_MAP = {
 
 class FacebookGroupModel(BaseModel):
     model_config = ConfigDict(frozen=False)
-    id: str = uuid1().hex
+    id: str = Field(default_factory=lambda: uuid1().hex)
     url: str
     last_visited: Optional[datetime] = None
 
@@ -74,11 +74,6 @@ class ApartmentModel(BaseModel):
             return float(v)
         except (ValueError, TypeError):
             return None
-
-    def convert_nan_to_none(cls, value):
-        if isinstance(value, float) and math.isnan(value):
-            return None
-        return value
 
 
 class LLMResponseModel(BaseModel):
@@ -148,6 +143,12 @@ class LLMResponseModel(BaseModel):
         "0.3-0.7: partial info. <0.3: spam, comments, or no real listing data.",
         ge=0, le=1)
     
+    @field_validator("confidence_score", mode="before")
+    @classmethod
+    def clamp_confidence(cls, v):
+        if v is None:
+            return v
+        return max(0.0, min(1.0, float(v)))
 
     @model_validator(mode="before")
     @classmethod

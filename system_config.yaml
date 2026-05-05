@@ -1,20 +1,73 @@
 llm_config:
-  extract_data_prompt: "You are a real estate information extractor. Extract apartment/rental\
-    \ information from Vietnamese and English real estate posts.\n\nJUNK POST DETECTION:\n\
-    - Seeking posts (person looking for apartment, not offering) \u2192 confidence_score\
-    \ < 0.2, all fields null\n- Spam, comments, no real listing info, just a phone\
-    \ number, generic group promotion \u2192 confidence_score < 0.2\n\nFORMATTING\
-    \ RULES:\n- Use null for missing values, never 'not specified' or 'N/A'\n- allows_foreigners\
-    \ defaults to true unless explicitly stated otherwise\n- price_currency defaults\
-    \ to 'VND'\n\nPost text to analyze:\n{content}\n"
-  model_name: qwen2.5:7b
+  extract_data_prompt: |
+    You are a real estate information extractor. Extract apartment/rental information from Vietnamese and English real estate posts. Your output must map directly to the provided schema.\
+    FIELD EXTRACTION RULES:
+
+    property_type: 'apartment', 'house', 'villa', 'commercial', or null
+    - apartment: 'căn hộ', 'apartment', 'condo' (studio → property_type='apartment' + bedrooms=0)
+    - house: 'nhà', 'house', 'homestay'
+    - villa: 'villa', 'biệt thự'
+    - commercial: 'mặt bằng', 'office', 'shop', 'store'
+
+    bedrooms: integer (0 for studio)
+    - Vietnamese: '1pn' = 1, '2pn' = 2, '3 phòng ngủ' = 3, 'phòng ngủ' = 1
+    - English: '1BR', '1-bedroom' = 1, 'studio' = 0, '2 beds' = 2
+
+    location: Extract street + ward + district. Keep Vietnamese names. Examples:
+    - 'Le Van Hien, Ngu Hanh Son' → 'Le Van Hien, Ngu Hanh Son'
+    - 'Quận Hải Châu, Đà Nẵng' → 'Hai Chau, Da Nang'
+    - 'gần biển Mỹ Khê' → 'near My Khe Beach'
+
+    contact_number: Extract ALL contact numbers. Combine with commas if multiple. Handle formats:
+    - Vietnamese: '0937678269', '0327209553'
+    - International: '+84 935 866 790', '+84935866790'
+    - With labels: 'Zalo/WhatsApp: +84 935 866 790' → '+84 935 866 790'
+
+    price: Monthly rent in MILLIONS of VND (float). Conversion:
+    - '5000000' → 5.0, '5,000,000' → 5.0, '5 triệu' → 5.0, '5tr' → 5.0, '7.5 million' → 7.5, '15M' → 15.0
+    - '13-15 triệu' → 13.0 (use lowest), '19-25M' → 19.0
+    - '2X' or 'XX' (censored) → null
+    - If USD only → price_currency='USD' (e.g., '$500' → price=500.0)
+
+    price_currency: 'VND' (default) or 'USD'. Use 'USD' only if price explicitly in $/USD with no VND.
+
+    electricity_rate: in VND/kWh as float. Examples:
+    - 'Điện: 4,000đ/kWh' → 4000.0, 'Electricity: 4000 VND/kWh' → 4000.0
+
+    water_rate: in VND as float. Examples:
+    - 'Water: 100,000 VND/person' → 100000.0, 'Nước: 150k/người' → 150000.0
+
+    service_fee: monthly building/maintenance fee in VND as float.
+    - 'Service fee: 200,000 VND' → 200000.0, 'Phí dịch vụ: 200k' → 200000.0
+
+    deposit_months: integer for months deposit required.
+    - 'cọc 1 tháng' → 1, 'deposit 2 months' → 2, 'cọc 2 thanh toán 3' → 2
+
+    move_in_from: date in YYYY-MM-DD format. Examples:
+    - 'available from 15/05/2026' → '2026-05-15', 'từ ngày 01/06' → '2026-06-01'
+    - 'available now', 'trống sẵn', 'now' → null
+
+    minimum_lease_months: integer. Examples:
+    - 'minimum 3 months' → 3, 'hợp đồng 3 tháng' → 3, 'từ 6 tháng' → 6, '1 year' → 12
+
+    allows_foreigners: boolean. Default true. Set false ONLY if explicitly stated:
+    - 'Vietnamese only', 'không cho người nước ngoài', 'local only', 'no foreigners'
+
+    summary: 2-3 sentence English summary. Include: property type, location, price, bedrooms, key amenities. Null if confidence_score < 0.2.
+    Example: 'Fully furnished 1-bedroom apartment in Ngu Hanh Son, Da Nang. 15 million VND/month. Near beach with balcony and private washing machine.'
+
+    confidence_score: float 0-1. 0.7+ = clear listing with price+location. 0.3-0.7 = partial. <0.3 = junk/spam.
+
+    Post text to analyze:
+    {content}
+  model_name: llama3:latest
   model_type: local
   temperature: 0.0
 runner_config:
   interval_mins: 30
   wait_for_user_interval_mins: 2
 scraper_config:
-  cooldown_max: 4
+  cooldown_max: 3
   cooldown_min: 2
   created_at:
     by: css selector
@@ -40,7 +93,7 @@ scraper_config:
   post_url:
     by: css selector
     value: a[href*='/posts/']
-  scroll_y: 5000
+  scroll_y: 10000
   search_facebook:
     by: css selector
     value: input[placeholder='Search Facebook']

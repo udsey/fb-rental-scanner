@@ -57,5 +57,5 @@ RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw_data')
 
 config = load_config()
 
-save_config(config.user_config, "user_config.yaml")
-save_config(config.system_config, "system_config.yaml")
+#save_config(config.user_config, "user_config.yaml")
+#save_config(config.system_config, "system_config.yaml")

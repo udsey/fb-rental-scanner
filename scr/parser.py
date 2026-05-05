@@ -66,7 +66,7 @@ def extract_data(text: str) -> LLMResponseModel:
     return structured_llm.invoke({"content": text})
 
 
-def get_apartments_table(df: pd.DataFrame, pause: float = 1) -> List[pd.DataFrame]:
+def get_apartments_table(df: pd.DataFrame) -> List[pd.DataFrame]:
     """Get enriched apartment table with data extracted."""
 
     apartments = []
@@ -88,8 +88,8 @@ def get_apartments_table(df: pd.DataFrame, pause: float = 1) -> List[pd.DataFram
         except Exception as e:
             logger.error(f"Failed to process row {idx}: {e}")
             unprocessed.append(row)
-        if pause:
-            time.sleep(pause)
+        if config.system_config.llm_config.model_type != "local":
+            time.sleep(1)
 
     if len(unprocessed) != 0:
         logger.info(f"Processed {len(apartments)} apartments successfully, {len(unprocessed)} failed.")
@@ -112,7 +112,7 @@ def filter_apartments(df: pd.DataFrame, criteria: CriteriaModel):
     if criteria.min_price is not None:
         mask &= df["price"] >= criteria.min_price
 
-    if criteria.max_price is not None:
+    if criteria.max_price is not None and criteria.max_price != float("inf"):
         mask &= df["price"] <= criteria.max_price
 
     if criteria.allows_foreigners is not None:
@@ -232,7 +232,3 @@ def select_relevant_apartments() -> None:
         preprocess_df(
             df=unprocessed,
             filepath=os.path.join(RAW_DATA_DIR, 'unprocessed.csv'))
-
-
-
-llm = get_llm()
