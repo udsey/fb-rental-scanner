@@ -8,13 +8,14 @@ from langchain_groq import ChatGroq
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.language_models import BaseChatModel
+from langchain_core.runnables import Runnable
 from dotenv import load_dotenv
 import pandas as pd
 from pydantic import BaseModel
 import logging
 from tqdm import tqdm
 
-from scr.models import CriteriaModel, LLMResponseModel, FacebookPostModel, ApartmentModel, LocationModel
+from scr.models import CriteriaModel, LLMResponseModel, ApartmentModel, LocationModel
 from scr.setup import DATA_DIR, RAW_DATA_DIR, config
 
 logger = logging.getLogger(__name__)
@@ -28,21 +29,24 @@ def get_llm() -> BaseChatModel:
 
     if model_type == "groq":
         return ChatGroq(
-        model=config.system_config.llm_config.model_name, 
-        temperature=config.system_config.llm_config.temperature
-        )
-    elif model_type == "local":
-        return ChatOllama(
-            model="llama3:latest",
+            model=config.system_config.llm_config.model_name, 
             temperature=config.system_config.llm_config.temperature
         )
+    
+    elif model_type == "local":
+        return ChatOllama(
+            model=config.system_config.llm_config.model_name,
+            temperature=config.system_config.llm_config.temperature
+        )
+    
     else:
         logger.error(f"Unknown model type: '{model_type}'. Expected 'groq' or 'local'.")
         raise
 
 
-def get_structured_llm(prompt_text: str, output_model: BaseModel) -> BaseChatModel:
+def get_structured_llm(prompt_text: str, output_model: BaseModel) -> Runnable:
     """Return structured llm."""
+    llm = get_llm()
     prompt = ChatPromptTemplate.from_messages([
     ("system", prompt_text),
     ("human", "{content}")
@@ -53,15 +57,12 @@ def get_structured_llm(prompt_text: str, output_model: BaseModel) -> BaseChatMod
     return structured_llm
 
 
+structured_llm = get_structured_llm(prompt_text=config.system_config.llm_config.extract_data_prompt, 
+                                    output_model=LLMResponseModel)
+
 
 def extract_data(text: str) -> LLMResponseModel:
     """Extrac data from raw text."""
-    prompt_text = config.system_config.llm_config.extract_data_prompt
-    output_model = LLMResponseModel
-    structured_llm = get_structured_llm(
-        prompt_text=prompt_text,
-        output_model=output_model
-    )
     return structured_llm.invoke({"content": text})
 
 
@@ -165,7 +166,7 @@ def load_df(filepath: str) -> Optional[pd.DataFrame]:
 
 
 
-def select_relevant_apartments():
+def select_relevant_apartments() -> None:
     """Parse raw apartments data and select relevant."""
 
     apartments_list = []

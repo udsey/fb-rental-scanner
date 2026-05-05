@@ -52,6 +52,7 @@ class ApartmentModel(BaseModel):
     service_fee: Optional[float] = None
     deposit_months: Optional[int] = None
     property_type: Optional[str] = None
+    bedrooms: Optional[int] = None
     original_text: Optional[str] = None
 
     @model_validator(mode="before")
@@ -81,47 +82,70 @@ class ApartmentModel(BaseModel):
 
 
 class LLMResponseModel(BaseModel):
-    property_type: Optional[str] = Field(default=None,
-        description="Property type. Extract from keywords: 'studio'→'studio', '1BR/1-bedroom/1 bedroom'→'apartment', 'house/nhà'→'house', 'villa'→'villa'. If room count mentioned but no type, use 'apartment'.")
-
-    location: Optional[str] = Field(default=None,
+    property_type: Optional[str] = Field(
+        default=None,
+        description="Property type: 'apartment', 'house', 'villa'. " \
+        "Studios are apartments with 0 bedrooms — set property_type='apartment' and bedrooms=0.")
+    
+    bedrooms: Optional[int] = Field(
+        default=None,
+        description="Number of bedrooms. 'studio'→0, '1BR/1-bedroom'→1, '2BR/2-bedroom'→2, etc. Null if not mentioned.")
+    
+    location: Optional[str] = Field(
+        default=None,
         description="Full address or area. Keep original Vietnamese names, do NOT translate. Include street, district if mentioned.")
 
-    contact_number: Optional[str] = Field(default=None,
-        description="Phone number in original format as written in the post.")
+    contact_number: Optional[str] = Field(
+        default=None,
+        description="Contact number in original format as written in the post.")
 
-    price: Optional[float] = Field(default=None,
-        description="Monthly rent in millions of VND. ALWAYS convert to millions: '13,500,000 VND'→13.5, '13.5 triệu'→13.5, '26M'→26.0. If USD+VND both given, use VND value. If price range given, use lowest.")
-
-    price_currency: Optional[str] = Field(default="VND",
+    price: Optional[float] = Field(
+        default=None,
+        description="Monthly rent in millions of VND. ALWAYS convert to millions for VND: '13,500,000 VND'→13.5, '13.5 triệu'→13.5, " \
+        "'26M'→26.0. If USD+VND both given, use VND value. If price range given, use lowest. If price written as '2X' or 'XX' (censored), set to null.")
+    
+    price_currency: Optional[str] = Field(
+        default="VND",
         description="Currency: 'VND' or 'USD'. Default VND unless price is USD-only.")
 
-    electricity_rate: Optional[float] = Field(default=None,
-        description="Electricity price in VND per kWh. E.g. '4,000đ/kWh'→4000.0.")
+    electricity_rate: Optional[float] = Field(
+        default=None,
+        description="Electricity price.")
 
-    water_rate: Optional[float] = Field(default=None,
-        description="Water price in VND per cubic meter or per person per month.")
+    water_rate: Optional[float] = Field(
+        default=None,
+        description="Water price.")
 
-    service_fee: Optional[float] = Field(default=None,
-        description="Monthly building service/maintenance fee in VND.")
+    service_fee: Optional[float] = Field(
+        default=None,
+        description="Monthly building service/maintenance fee.")
 
-    deposit_months: Optional[int] = Field(default=None,
+    deposit_months: Optional[int] = Field(
+        default=None,
         description="Number of months deposit required. E.g. 'deposit 2 months'→2.")
 
-    move_in_from: Optional[str] = Field(default=None,
-        description="Earliest move-in date in YYYY-MM-DD format. Look for: 'available from', 'from', 'ngày', 'từ ngày'. 'available now'/'free now' → use null. If no date mentioned → null.")
+    move_in_from: Optional[str] = Field(
+        default=None,
+        description="Earliest move-in date in YYYY-MM-DD format. " \
+        "Look for: 'available from', 'from', 'ngày', 'từ ngày'. 'available now'/'free now' → use null. If no date mentioned → null.")
 
-    minimum_lease_months: Optional[int] = Field(default=None,
+    minimum_lease_months: Optional[int] = Field(
+        default=None,
         description="Minimum lease term in months. E.g. 'minimum 6 months'→6, '1 year minimum'→12.")
 
-    allows_foreigners: Optional[bool] = Field(default=True,
-        description="Whether foreigners are accepted. Default true unless explicitly stated otherwise (e.g. 'Vietnamese only', 'không cho người nước ngoài').")
+    allows_foreigners: Optional[bool] = Field(
+        default=True,
+        description="Whether foreigners are accepted. Default true unless explicitly stated otherwise"
+        " (e.g. 'Vietnamese only', 'không cho người nước ngoài').")
 
-    summary: Optional[str] = Field(default=None,
-                                   description="2-3 sentence English summary covering property type, location, price, and key amenities. Only null if post does not contain apartment listing info.")
+    summary: Optional[str] = Field(
+        default=None,
+        description="2-3 sentence English summary covering property type, location, price, and key amenities. " \
+        "Only null if post does not contain apartment listing info.")
 
     confidence_score: Optional[float] = Field(default=None,
-        description="How much real listing info was found (0-1). >0.7: clear listing with price+location. 0.3-0.7: partial info. <0.3: spam, comments, or no real listing data.",
+        description="How much real listing info was found (0-1). >0.7: clear listing with price+location. " \
+        "0.3-0.7: partial info. <0.3: spam, comments, or no real listing data.",
         ge=0, le=1)
     
 
@@ -134,7 +158,6 @@ class LLMResponseModel(BaseModel):
         # Map field name → default to use when null is received
         null_safe_defaults = {
             "allows_foreigners": True,
-            "move_in_from": "not specified",
             "price_currency": "VND",
         }
 
@@ -144,9 +167,9 @@ class LLMResponseModel(BaseModel):
 
         return data
 
+
 class LocationModel(BaseModel):
     pass
-
 
 class CriteriaModel(BaseModel):
     min_price: Optional[float] = 0.0

@@ -62,7 +62,7 @@ if __name__ == "__main__":
             logger.info("-"*100)
             logger.info("New iteration started.")
             logger.info("-"*100)
-            read_new_posts_from_all_groups(driver=driver)
+            read_new_posts_from_all_groups(driver=driver, wait=wait)
             
             new_files = os.listdir(RAW_DATA_DIR)
             if len(new_files) == 0:
@@ -72,7 +72,7 @@ if __name__ == "__main__":
             select_relevant_apartments()
             n_relevant = check_relevant()
             if n_relevant:
-                decision = wait_for_input(n_relevant=n_relevant)
+                decision = wait_for_input(n_relevant=n_relevant, timeout=config.system_config.runner_config.wait_for_user_interval_mins)
                 if decision:
                     review_apartments()
                     generate_messages()

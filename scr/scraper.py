@@ -4,12 +4,14 @@ import random
 import time
 from datetime import datetime, timedelta
 from typing import List, Optional
+from selenium.webdriver import Chrome
 from tqdm import tqdm
 import logging
 
 import pandas as pd
 
-from selenium import webdriver
+
+from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
@@ -49,13 +51,13 @@ def text_to_datetime(created_at: str) -> Optional[datetime]:
         logger.debug(e, exc_info=True)
 
 
-def cooldown():
+def cooldown() -> None:
     a = config.system_config.scraper_config.cooldown_min
     b = config.system_config.scraper_config.cooldown_max
     time.sleep(random.uniform(a, b))
 
 
-def configure_chrome():
+def configure_chrome() -> tuple[WebDriver, WebDriverWait]:
     """Configure chromedriver"""
 
     wait_timeout = config.system_config.scraper_config.wait_timeout
@@ -72,7 +74,7 @@ def configure_chrome():
         "profile.default_content_setting_values.notifications": 2
     })
 
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver = Chrome(service=Service(ChromeDriverManager().install()), options=options)
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
         "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
     })
@@ -80,7 +82,7 @@ def configure_chrome():
     return driver, wait
 
 
-def login_facebook(driver: webdriver, 
+def login_facebook(driver: WebDriver, 
                    wait: WebDriverWait, 
                    scraper_config: ScraperConfigModel):
     """Login to Facebook."""
@@ -113,7 +115,7 @@ def scroll(driver, x: int = 0, y: int = 1000):
     driver.execute_script(f"window.scrollBy({x}, {y});")
 
 
-def last_idx(driver: webdriver, 
+def last_idx(driver: WebDriver, 
              scraper_config: ScraperConfigModel, 
              post_elements, 
              last_update: datetime):
@@ -149,7 +151,7 @@ def last_idx(driver: webdriver,
     return None, None
 
 
-def scroll_till_last(driver: webdriver, 
+def scroll_till_last(driver: WebDriver, 
                      scraper_config: ScraperConfigModel,
                      last_update: datetime):
     """Scroll down till last update."""
@@ -173,21 +175,23 @@ def scroll_till_last(driver: webdriver,
     scroll_into_element(driver, post_elements[idx])
 
 
-def get_created_at(driver: webdriver, 
+def get_created_at(driver: WebDriver,
+                   wait: WebDriverWait,
                    scraper_config: ScraperConfigModel,
                    share: WebElement) -> Optional[datetime]:
     """Get post creation time."""
     ActionChains(driver).move_to_element(share).perform()
-    cooldown()
-    created_at = driver.find_elements(*scraper_config.created_at.as_tuple())
-    if created_at:
-        return text_to_datetime(created_at[0].text)
-    return None
+    try:
+        tooltip = wait.until(EC.presence_of_element_located(scraper_config.created_at.as_tuple()))
+        return text_to_datetime(tooltip.text)
+    except:
+        return None
 
 
-def read_post(driver: webdriver, 
-             scraper_config: ScraperConfigModel,
-             post_element: WebElement) -> FacebookPostModel:
+def read_post(driver: WebDriver,
+              wait: WebDriverWait, 
+              scraper_config: ScraperConfigModel,
+              post_element: WebElement) -> FacebookPostModel:
     """Extract facebook post."""
     post = FacebookPostModel()
     try:
@@ -196,6 +200,7 @@ def read_post(driver: webdriver,
         share = panel.find_elements(*scraper_config.share.as_tuple())[-3]
 
         post.created_at = get_created_at(driver=driver,
+                                         wait=wait,
                                          scraper_config=scraper_config,
                                          share=share)
 
@@ -216,7 +221,8 @@ def read_post(driver: webdriver,
     return post
 
 
-def read_visible_posts(driver: webdriver,
+def read_visible_posts(driver: WebDriver,
+                       wait: WebDriverWait,
                        scraper_config: ScraperConfigModel,
                        last_update: datetime) -> List[FacebookPostModel]:
     """Read visible posts."""
@@ -236,6 +242,7 @@ def read_visible_posts(driver: webdriver,
                                 element=post_element)
             cooldown()
             post = read_post(driver=driver, 
+                             wait=wait,
                              scraper_config=scraper_config,
                              post_element=post_element)
             cooldown()
@@ -252,14 +259,15 @@ def read_visible_posts(driver: webdriver,
     return posts
 
 
-def scroll_into_element(driver: webdriver, 
+def scroll_into_element(driver: WebDriver, 
                         element: WebElement, 
                         offset: int =-100):
     """Scroll view into the top of element."""
     driver.execute_script(f"arguments[0].scrollIntoView(true); window.scrollBy(0, {offset});", element)
 
 
-def read_group_new_posts(driver: webdriver, 
+def read_group_new_posts(driver: WebDriver,
+                         wait: WebDriverWait, 
                          scraper_config: ScraperConfigModel,
                          group_info: FacebookGroupModel) -> List[FacebookPostModel]:
     """Read new messages in group."""
@@ -279,13 +287,14 @@ def read_group_new_posts(driver: webdriver,
     cooldown()
     logger.info(f"Reading new posts since {last_update}")
     posts = read_visible_posts(driver=driver,
+                               wait=wait,
                                scraper_config=scraper_config,
                                last_update=last_update)
     return posts
 
 
 
-def read_new_posts_from_all_groups(driver: webdriver):
+def read_new_posts_from_all_groups(driver: WebDriver, wait: WebDriverWait):
     """Read new posts across all groups."""
     group_info = config.user_config.facebook_groups
     scraper_config = config.system_config.scraper_config
@@ -294,6 +303,7 @@ def read_new_posts_from_all_groups(driver: webdriver):
         try:
             current_time = datetime.now()
             group_posts = read_group_new_posts(driver=driver, 
+                                               wait=wait,
                                                scraper_config=scraper_config,
                                                group_info=group_info)
             raw_posts += group_posts

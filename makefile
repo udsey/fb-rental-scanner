@@ -30,4 +30,4 @@ scrap-facebook:
 		driver, wait = configure_chrome(); \
 		scraper_config = config.system_config.scraper_config; \
 		login_facebook(driver=driver, scraper_config=scraper_config, wait=wait); \
-		read_new_posts_from_all_groups(driver=driver)'
+		read_new_posts_from_all_groups(driver=driver, wait=wait)'
