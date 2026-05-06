@@ -67,6 +67,9 @@ if __name__ == "__main__":
             
             new_files = os.listdir(RAW_DATA_DIR)
             if len(new_files) == 0:
+                logger.info(f"Done. Next run scheduled in {config.system_config.runner_config.interval_mins} minutes")   
+                time.sleep(config.system_config.runner_config.interval_mins * 60)
+                gc.collect()
                 continue
 
             logger.info("Parsing new posts.")

@@ -64,11 +64,11 @@ llm_config:
   model_type: local
   temperature: 0.0
 runner_config:
-  interval_mins: 30
+  interval_mins: 10
   wait_for_user_interval_mins: 2
 scraper_config:
-  cooldown_max: 3
-  cooldown_min: 2
+  cooldown_max: 6
+  cooldown_min: 3
   created_at:
     by: css selector
     value: '[role=''tooltip'']'
@@ -93,7 +93,7 @@ scraper_config:
   post_url:
     by: css selector
     value: a[href*='/posts/']
-  scroll_y: 10000
+  scroll_y: 80000
   search_facebook:
     by: css selector
     value: input[placeholder='Search Facebook']

@@ -284,7 +284,7 @@ def read_group_new_posts(driver: WebDriver,
     scroll_till_last(driver=driver,
                      scraper_config=scraper_config,
                      last_update=last_update)
-    #cooldown()
+    cooldown()
     logger.info(f"Reading new posts since {last_update}")
     posts = read_visible_posts(driver=driver,
                                wait=wait,
